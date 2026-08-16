@@ -1,28 +1,24 @@
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from tools import obtener_salario, calcular_bono
 
 # Cargar las variables seguras desde el archivo .env
 load_dotenv()
 
-# Obtener y configurar la API Key de Gemini
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     raise ValueError("No se encontró la GEMINI_API_KEY en el archivo .env. Por favor, configúrala.")
 
-genai.configure(api_key=api_key)
+# Inicializar el cliente oficial con el nuevo SDK
+client = genai.Client(api_key=api_key)
 
-# Definir las herramientas que el agente tiene permitido usar
-tools = [obtener_salario, calcular_bono]
+# Definir las herramientas disponibles para el agente
+tools_list = [obtener_salario, calcular_bono]
 
-# Configurar el modelo de Gemini pasando las herramientas disponibles
-# Usamos gemini-1.5-flash por su velocidad y eficiencia en llamadas a herramientas
-model = genai.GenerativeModel(
-    model_name='gemini-1.5-flash',
-    tools=tools,
-    system_instruction="Eres un asistente de recursos humanos amable y preciso. Utiliza las herramientas disponibles para responder consultas sobre salarios y calcular bonos de los empleados."
-)
+# Instrucciones de sistema para el comportamiento del agente
+system_instruction = "Eres un asistente de recursos humanos amable y preciso. Utiliza las herramientas disponibles para responder consultas sobre salarios y calcular bonos de los empleados."
 
 def iniciar_agente():
     print("==================================================")
@@ -30,8 +26,15 @@ def iniciar_agente():
     print("Escribe tu pregunta o escribe 'salir' para terminar.")
     print("==================================================\n")
     
-    # Iniciamos una sesión de chat que maneja automáticamente las herramientas
-    chat = model.start_chat(enable_automatic_function_calling=True)
+    # Crear una sesión de chat con el nuevo SDK utilizando gemini-3.7-flash
+    chat = client.chats.create(
+        model="gemini-3.7-flash",
+        config=types.GenerateContentConfig(
+            tools=tools_list,
+            system_instruction=system_instruction,
+            temperature=0.3
+        )
+    )
 
     while True:
         try:
@@ -43,7 +46,7 @@ def iniciar_agente():
             if not user_input.strip():
                 continue
 
-            # El agente procesa el mensaje, decide si necesita una herramienta y responde
+            # Enviar el mensaje al chat (el SDK maneja las herramientas automáticamente)
             response = chat.send_message(user_input)
             print(f"\nAgente: {response.text}\n")
             
